@@ -1,63 +1,35 @@
-// backend/routes/workRoutes.js
+// routes/workRoutes.js
+
 const express = require('express');
-const Work = require('../models/Work');
-const jwt = require('jsonwebtoken');
-
 const router = express.Router();
-const JWT_SECRET = 'your_secret_key';
+const Work = require('../models/Work'); // Assuming you have a Work model defined
 
-// Middleware to authenticate token
-const authenticateToken = (req, res, next) => {
-  const token = req.header('Authorization')?.split(' ')[1];
-  if (!token) return res.status(401).json({ message: 'No token provided' });
-
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (error) {
-    res.status(403).json({ message: 'Invalid token' });
-  }
-};
-
-// Add Work
-router.post('/', authenticateToken, async (req, res) => {
+// Route to add new work
+router.post('/', async (req, res) => {
   const { workName, workDescription, department, type } = req.body;
 
   try {
+    // Validate the required fields
+    if (!workName || !workDescription || !department || !type) {
+      return res.status(400).json({ success: false, message: 'All fields are required.' });
+    }
+
+    // Create a new Work instance
     const newWork = new Work({
       workName,
       workDescription,
       department,
       type,
-      userId: req.user.id,
     });
+
+    // Save the work to the database
     await newWork.save();
-    res.status(201).json({ message: 'Work added successfully' });
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to add work', error });
-  }
-});
 
-// Get all works for the authenticated user
-router.get('/', authenticateToken, async (req, res) => {
-  try {
-    const works = await Work.find({ userId: req.user.id });
-    res.json(works);
+    // Send success response
+    return res.status(200).json({ success: true, message: 'Work added successfully' });
   } catch (error) {
-    res.status(500).json({ message: 'Failed to retrieve works', error });
-  }
-});
-
-// Delete a work item
-router.delete('/:id', authenticateToken, async (req, res) => {
-  try {
-    const work = await Work.findOneAndDelete({ _id: req.params.id, userId: req.user.id });
-    if (!work) return res.status(404).json({ message: 'Work not found' });
-
-    res.json({ message: 'Work deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ message: 'Failed to delete work', error });
+    console.error('Error adding work:', error);
+    return res.status(500).json({ success: false, message: 'Failed to add work. Please try again.' });
   }
 });
 
